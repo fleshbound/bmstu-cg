@@ -1,0 +1,2 @@
+SUCCESS = 0
+ERR_TUPLE_LEN = 1
