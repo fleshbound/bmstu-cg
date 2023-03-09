@@ -12,7 +12,7 @@ class Point(object):
         return self.x
 
     def get_y(self) -> float:
-        return self.x
+        return self.y
 
     def set_x(self, x) -> None:
         self.x = x
