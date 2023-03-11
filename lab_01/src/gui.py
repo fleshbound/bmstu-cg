@@ -3,9 +3,16 @@ from tkinter import messagebox, filedialog, Label, Entry, Button, messagebox, LA
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from point import Point
-from time import sleep
+from random import uniform
+from triangle import *
 
-INCHES_CONST = 100
+INCHES_CONST = 96
+
+class MyTriangle(Triangle):
+
+    def __init__(self, points, indexes):
+        super(MyTriangle, self).__init__(points[0], points[1], points[2])
+        self.indexes = indexes
 
 
 class Root(Tk):
@@ -14,60 +21,70 @@ class Root(Tk):
     def __init__(self):
         super(Root, self).__init__()
 
+        # Variables
+        self.height = 600
+        self.width = 1750
+        self.points = []
+        self.canvas, self.axis = None, None
+        self.x_coord_var, self.y_coord_var, self.del_index_var = StringVar(), StringVar(), StringVar()
+        self.status_contents = StringVar()
+        self.padding = {'padx': 15, 'pady': 3}
+        self.last_action = {'action': "", 'point_index': -1, 'point': Point(0, 0)}
+        self.result_triangle = None
+        self.result_var = StringVar()
+
         # Font
         self.defaultFont = font.nametofont("TkDefaultFont")
-        self.defaultFont.configure(family="Courier",
-                                   size=15)
+        self.defaultFont.configure(family="Courier", size=15)
 
+        # Window
+        self.set_window_settings()
+
+        # Frames
+        self.frames = {}
+        self.set_frames()
+
+        # Fields
+        self.fields = {}
+        self.set_fields()
+
+        self.pack_frames()
+
+    def set_fields(self):
+        self.set_matplotlib_canvas()
+        self.set_point_entries()
+        self.set_index_entry()
+        self.set_points_listbox()
+        self.set_buttons()
+        self.set_decoration_labels()
+        self.set_result_label()
+        self.set_status_label()
+        self.canvas_draw()
+        self.reset_last_action()
+
+    def set_window_settings(self):
         self.title("Computer Graphics: Lab #01")
-
-        self.height = 800
-        self.width = 1600
-
         self.minsize(self.width, self.height)
         self.resizable(width=False, height=False)
 
-        self.content = Frame(self)
-        self.frame = Frame(self.content, borderwidth=5, relief="ridge",
-                           width=self.width, height=self.height)
-
-        self.cols = 8
-        self.rows = 15
-
-        self.last_action = ["", -1, Point(0, 0)]
-
-        self.points = []
-        self.points_listbox = None
-        self.set_points_listbox()
-
-        self.buttons = []
-        self.set_buttons()
-        self.canvas, self.axis = self.set_matplotlib_canvas()
-
-        self.x_coord_var, self.y_coord_var, self.del_index = StringVar(), StringVar(), StringVar()
-        self.entries = []
-        self.set_point_entries()
-        self.set_index_entry()
-
-        self.status_label = None
-        self.status_contents = StringVar()
-        self.set_status_label()
-        self.update_status_label("Ожидание...")
-
-        self.set_grid_configures()
-
-        self.canvas_draw()
+    def set_frames(self):
+        self.frames['action_frame'] = Frame(self)
+        self.frames['add_frame'] = Frame(self.frames['action_frame'])
+        self.frames['del_frame'] = Frame(self.frames['action_frame'])
+        self.frames['extra_frame'] = Frame(self.frames['action_frame'])
+        self.frames['res_frame'] = Frame(self.frames['action_frame'])
+        self.frames['canvas_frame'] = Frame(self)
+        self.frames['listbox_frame'] = Frame(self)
 
     def set_matplotlib_canvas(self):
         """Настройка поля отрисовки"""
 
-        figure = Figure(figsize=(self.width // (2 * INCHES_CONST),
-                                 self.height // (2 * INCHES_CONST)), dpi=100)
+        figure = Figure(figsize=(5.5, 5.5), dpi=100)
         axis = figure.add_subplot(111)
-        canvas = FigureCanvasTkAgg(figure, self)
-        canvas.get_tk_widget().grid(row=0, column=4, sticky=NSEW, columnspan=self.cols // 2, rowspan=self.rows)
-
-        return canvas, axis
+        canvas = FigureCanvasTkAgg(figure, self.frames['canvas_frame'])
+        self.fields['canvas'] = canvas.get_tk_widget()
+        self.canvas = canvas
+        self.axis = axis
 
     def draw_axis(self):
         """Отрисовка осей"""
@@ -88,15 +105,54 @@ class Root(Tk):
         """Отрисовка точек с подписями"""
 
         if len(self.points) > 0:
-            self.axis.scatter([p.x for p in self.points], [p.y for p in self.points], c="purple")
-            self.axis.scatter(self.points[len(self.points) - 1].x,
-                              self.points[len(self.points) - 1].y, c="pink")
+            self.axis.scatter([p.get_x() for p in self.points], [p.get_y() for p in self.points], c="black")
+            self.axis.scatter(self.points[len(self.points) - 1].get_x(),
+                              self.points[len(self.points) - 1].get_y(), c="red")
 
             i = 0
 
             for p in self.points:
                 i += 1
-                self.axis.text(p.x, p.y, f"{i}\n", va='bottom', ha='center')
+                text_x, text_y = p.x, p.y  # self.get_random_near_point(p.x, p.y, 0.01)
+                self.axis.text(text_x, text_y, f"{i}: ({p.get_x()};{p.get_y()})\n", va='center', ha='center')
+
+    def draw_result_triangle(self):
+        x = [self.result_triangle.point_a.get_x(),
+             self.result_triangle.point_b.get_x(),
+             self.result_triangle.point_c.get_x()]
+        y = [self.result_triangle.point_a.get_y(),
+             self.result_triangle.point_b.get_y(),
+             self.result_triangle.point_c.get_y()]
+
+        unique_x = [self.result_triangle.unique_angle_point.get_x(),
+                    self.result_triangle.median_point.get_x(),
+                    self.result_triangle.bisector_point.get_x()]
+        unique_y = [self.result_triangle.unique_angle_point.get_y(),
+                    self.result_triangle.median_point.get_y(),
+                    self.result_triangle.bisector_point.get_y()]
+
+        self.axis.scatter(x, y, c="black")
+        self.axis.scatter(unique_x, unique_y, c="red")
+
+        # triangle
+        self.axis.plot([x[0], y[0]], [x[1], y[1]], c="black")
+        self.axis.plot([x[1], y[1]], [x[2], y[2]], c="black")
+        self.axis.plot([x[0], y[0]], [x[2], y[2]], c="black")
+
+        # median
+        self.axis.plot([unique_x[0], unique_y[0]], [unique_x[1], unique_y[1]], c="blue")
+
+        # Bisector
+        self.axis.plot([unique_x[0], unique_y[0]], [unique_x[2], unique_y[2]], c="green")
+
+        for i in range(len(x)):
+            self.axis.text(x[i], y[i], f"{self.result_triangle.indexes[i]}: "
+                                       f"({x[i]};{y[i]})\n", va='center', ha='center')
+
+        self.axis.text(unique_x[1], unique_y[1], f"M: ({unique_x[1]};{unique_y[1]})",
+                       va='center', ha='center')
+        self.axis.text(unique_x[2], unique_y[2], f"B: ({unique_x[2]};{unique_y[2]})",
+                       va='center', ha='center')
 
     def canvas_draw(self, draw_points=True, draw_triangle=False):
         """Отрисовка объектов"""
@@ -106,17 +162,20 @@ class Root(Tk):
         if draw_points:
             self.draw_points()
 
+        if draw_triangle:
+            self.draw_result_triangle()
+
         self.axis.grid()
         self.draw_axis()
         self.axis.autoscale()
         self.canvas.draw()
 
-    def entries_have_numbers(self):
-        if self.entries[0].index("end") == 0 or self.entries[1].index("end") == 0:
+    def check_point_entries(self):
+        if self.fields['x_entry'].index("end") == 0 or self.fields['y_entry'].index("end") == 0:
             return False
 
-        x = self.entries[0].get()
-        y = self.entries[1].get()
+        x = self.fields['x_entry'].get()
+        y = self.fields['y_entry'].get()
 
         try:
             float(x)
@@ -131,11 +190,11 @@ class Root(Tk):
         return True
 
     def clear_point_entries(self):
-        self.entries[0].delete(0, END)
-        self.entries[1].delete(0, END)
+        self.fields['x_entry'].delete(0, END)
+        self.fields['y_entry'].delete(0, END)
 
     def clear_index_entry(self):
-        self.entries[2].delete(0, END)
+        self.fields['ind_entry'].delete(0, END)
 
     def add_point_by_index(self, index, new_point):
         self.points.append(Point(0, 0))
@@ -153,67 +212,59 @@ class Root(Tk):
     def add_point(self):
         """Добавление точки в список, тектовое окно, отрисовка"""
 
-        if not self.entries_have_numbers():
+        if not self.check_point_entries():
             messagebox.showerror("Ошибка ввода", "Координатами должны быть вещественные числа")
             self.clear_point_entries()
             return
 
-        new_point = Point(float(self.entries[0].get()), float(self.entries[1].get()))
+        new_point = Point(float(self.fields['x_entry'].get()), float(self.fields['y_entry'].get()))
         self.add_point_by_index(len(self.points), new_point)
         self.update_last_action("add", len(self.points) - 1, new_point)
         self.update_status_label(f"Добавлена точка: ({new_point.x}; {new_point.y})")
 
     def set_buttons(self):
-        """Настройка кнопок"""
+        """Создание кнопок"""
 
-        self.buttons.append(Button(self, text="Добавить",
-                            command=lambda: self.add_point()))
-        self.buttons.append(Button(self, text="Удалить по индексу",
-                                   command=lambda: self.delete_point()))
-        self.buttons.append(Button(self, text="Отмена",
-                                   command=lambda: self.undo_last_action()))
-        self.buttons.append(Button(self, text="Удалить последнюю",
-                            command=lambda: self.delete_point(last=True)))
-        self.buttons.append(Button(self, text="Получить результат",
-                                   command=lambda: print("")))
+        self.fields['add_button'] = Button(self.frames['add_frame'], text="+ Добавить",
+                                           command=lambda: self.add_point())
+        self.fields['del_button'] = Button(self.frames['del_frame'], text="- Удалить №",
+                                           command=lambda: self.delete_point())
+        self.fields['del_last_button'] = Button(self.frames['del_frame'], text="- Послед.",
+                                                command=lambda: self.delete_point(last=True))
+        self.fields['cancel_button'] = Button(self.frames['extra_frame'], text="Отменить",
+                                              command=lambda: self.undo_last_action())
+        self.fields['clear_button'] = Button(self.frames['extra_frame'], text="Очистить",
+                                             command=lambda: self.delete_all_points())
+        self.fields['res_button'] = Button(self.frames['res_frame'], text="Получить результат",
+                                           command=lambda: self.get_result_triangle())
 
-        self.buttons[0].grid(row=1, column=0, sticky=NSEW, columnspan=2, padx=15, pady=15)
-        self.buttons[1].grid(row=2, column=0, sticky=NSEW, columnspan=1, padx=15, pady=15)
-        self.buttons[2].grid(row=3, column=0, sticky=NSEW, columnspan=1, padx=15, pady=15)
-        self.buttons[3].grid(row=3, column=1, sticky=NSEW, columnspan=1, padx=15, pady=15)
-        self.buttons[4].grid(row=4, column=0, sticky=NSEW, columnspan=2, padx=15, pady=15)
+    def insert_listbox_separator(self):
+        self.fields['listbox'].insert(END, f"|-------|-------|-------|")
 
-    def set_grid_configures(self):
-        """Настройка разметки окна"""
+    def insert_listbox_heading(self):
+        self.fields['listbox'].insert(END, "|-- № --|-- x --|-- y --|")
+        self.insert_listbox_separator()
 
-        self.columnconfigure(0, weight=1)
-
-        for col in range(0, self.cols // 2):
-            self.columnconfigure(col, weight=1)
-            self.columnconfigure(col + self.cols // 2, weight=1)
-
-        for row in range(self.rows):
-            self.grid_rowconfigure(row, weight=1)
+    def insert_listbox_info(self, i, x, y):
+        self.fields['listbox'].insert(END, f"| {i:^5} | {x:^5} | {y:^5} |")
 
     def set_points_listbox(self):
         """Настройка текстового списка точек"""
 
-        self.points_listbox = Listbox(self)
-        self.points_listbox.grid(row=0, column=2, columnspan=self.cols // 4, rowspan=self.rows,
-                                 sticky=NSEW, padx=10, pady=10)
-        self.points_listbox.insert(END, "|- № -|- x -|- y -|")
-        self.points_listbox.insert(END, f"|-----|-----|-----|")
+        self.fields['listbox'] = Listbox(self.frames['listbox_frame'])
+        self.insert_listbox_heading()
 
     def update_points_listbox(self):
         """Обновление текстового списка точек"""
 
-        self.points_listbox.delete(first=0, last=END)
-        self.points_listbox.insert(END, "|- № -|- x -|- y -|")
-        self.points_listbox.insert(END, f"|-----|-----|-----|")
+        self.fields['listbox'].delete(first=0, last=END)
+        self.insert_listbox_heading()
 
         for i in range(len(self.points)):
-            self.points_listbox.insert(END, f"|{i + 1:^5}|{self.points[i].get_x():^5}|{self.points[i].get_y():^5}|")
-            self.points_listbox.insert(END, f"|-----|-----|-----|")
+            curr_x = self.points[i].get_x()
+            curr_y = self.points[i].get_y()
+            self.insert_listbox_info(i + 1, curr_x, curr_y)
+            self.insert_listbox_separator()
 
     def delete_point_by_index(self, index) -> tuple:
         deleted = Point(self.points[index].get_x(), (self.points[index].get_y()))
@@ -229,10 +280,10 @@ class Root(Tk):
         return deleted.get_x(), deleted.get_y()
 
     def check_index_entry(self):
-        if self.entries[2].get() == "":
+        if self.fields['ind_entry'].get() == "":
             return False
 
-        i = self.entries[0].get()
+        i = self.fields['ind_entry'].get()
 
         try:
             int(i)
@@ -240,6 +291,16 @@ class Root(Tk):
             return False
 
         return True
+
+    def delete_all_points(self):
+        if len(self.points) == 0:
+            messagebox.showerror("Ошибка удаления", "Список точек пуст")
+            return
+
+        while len(self.points) != 0:
+            self.delete_point(last=True)
+
+        self.update_status_label("Удаление всех точек")
 
     def delete_point(self, last=False):
         """Удаление точки из списка, текстового списка, отрисовка"""
@@ -256,7 +317,7 @@ class Root(Tk):
                 self.clear_index_entry()
                 return
 
-            index = int(self.entries[2].get())
+            index = int(self.fields['ind_entry'].get())
 
             if index <= 0 or index > len(self.points):
                 messagebox.showerror("Ошибка удаления", "Индекс выходит за границы списка")
@@ -270,49 +331,177 @@ class Root(Tk):
         self.update_status_label(f"Удалена точка: {index + 1} ({deleted.x}; {deleted.y})")
 
     def set_point_entries(self):
-        self.entries.append(Entry(self, textvariable=self.x_coord_var, font=("Courier", 18), justify=RIGHT))
-        self.entries.append(Entry(self, textvariable=self.y_coord_var, font=("Courier", 18), justify=RIGHT))
-
-        self.entries[0].grid(row=0, column=0, sticky=NSEW, padx=15, pady=15, rowspan=1, columnspan=1)
-        self.entries[1].grid(row=0, column=1, sticky=NSEW, padx=15, pady=15, rowspan=1, columnspan=1)
+        self.fields['x_entry'] = Entry(self.frames['add_frame'], textvariable=self.x_coord_var,
+                                       font=self.defaultFont, justify=RIGHT)
+        self.fields['y_entry'] = Entry(self.frames['add_frame'], textvariable=self.y_coord_var,
+                                       font=self.defaultFont, justify=RIGHT)
 
     def set_index_entry(self):
-        self.entries.append(Entry(self, textvariable=self.del_index, font=("Courier", 18), justify=RIGHT))
-        self.entries[2].grid(row=2, column=1, sticky=NSEW, padx=15, pady=15, rowspan=1, columnspan=1)
+        self.fields['ind_entry'] = Entry(self.frames['del_frame'], textvariable=self.del_index_var,
+                                         font=self.defaultFont, justify=RIGHT)
 
     def set_status_label(self):
-        self.status_label = Label(self)
-        self.status_label['textvariable'] = self.status_contents
-        self.status_label.grid(row=5, column=0, sticky=NSEW, padx=5, pady=5, rowspan=3, columnspan=2)
+        self.fields['status_label'] = Label(self.frames['canvas_frame'])
+        self.fields['status_label']['textvariable'] = self.status_contents
+        self.update_status_label("Ожидание...")
 
     def update_status_label(self, text):
         self.status_contents.set(text)
 
     def update_last_action(self, action_type, index, point):
-        self.last_action[0] = action_type
-        self.last_action[1] = index
-        self.last_action[2].set_x(point.x)
-        self.last_action[2].set_y(point.y)
+        self.last_action['action'] = action_type
+        self.last_action['point_index'] = index
+        self.last_action['point'].set_x(point.x)
+        self.last_action['point'].set_y(point.y)
+
+    def reset_last_action(self):
+        self.update_last_action("", -1, Point(0, 0))
+
+    def set_result_label(self):
+        self.fields['res_label'] = Label(self.frames['res_frame'], borderwidth=2, relief="solid", justify=LEFT)
+        self.fields['res_label']['textvariable'] = self.result_var
+        self.result_var.set("Тут появится результат вычислений")
+
+    def update_result_label(self, text):
+        self.result_var.set(text)
 
     def undo_last_action(self):
-        if self.last_action[0] == "":
-            messagebox.showerror("Ошибка отмены", "Возможна отмена ровно одного совершенного действия")
+        if self.last_action['action'] == "":
+            messagebox.showerror("Ошибка отмены", "Возможна отмена ровно одного совершенного добавления или удаления")
             return
 
-        if self.last_action[0] == "add":
-            self.delete_point_by_index(self.last_action[1])
+        if self.last_action['action'] == "add":
+            self.delete_point_by_index(self.last_action['point_index'])
             self.update_status_label("Отмена добавления точки")
 
-        if self.last_action[0] == "del":
-            self.add_point_by_index(self.last_action[1], self.last_action[2])
+        if self.last_action['action'] == "del":
+            self.add_point_by_index(self.last_action['point_index'], self.last_action['point'])
             self.update_status_label("Отмена удаления точки")
 
-        self.last_action[0] = ""
-        self.last_action[1] = -1
-        self.last_action[2].set_x(0)
-        self.last_action[2].set_y(0)
+        self.reset_last_action()
+
+    def set_decoration_labels(self):
+        self.fields['x_label'] = Label(self.frames['add_frame'], text="X:", justify=RIGHT)
+        self.fields['y_label'] = Label(self.frames['add_frame'], text="Y:", justify=RIGHT)
+        self.fields['ind_label'] = Label(self.frames['del_frame'], text="№:", justify=RIGHT)
+
+    def pack_add_frame(self):
+        self.fields['x_label'].pack(**self.padding, side="left", expand=True, fill=X)
+        self.fields['x_entry'].pack(**self.padding, side="left")
+        self.fields['y_label'].pack(**self.padding, side="left", expand=True, fill=X)
+        self.fields['y_entry'].pack(**self.padding, side="left")
+        self.fields['add_button'].pack(**self.padding, side="left", expand=True, fill=X)
+
+    def pack_del_frame(self):
+        self.fields['ind_label'].pack(**self.padding, side="left", fill=X)
+        self.fields['ind_entry'].pack(**self.padding, side="left")
+        self.fields['del_button'].pack(**self.padding, side="left", expand=True, fill=X)
+        self.fields['del_last_button'].pack(**self.padding, side="left", expand=True, fill=X)
+
+    def pack_extra_frame(self):
+        self.fields['cancel_button'].pack(**self.padding, side="left", fill=X, expand=True)
+        self.fields['clear_button'].pack(**self.padding, side="left", fill=X, expand=True)
+
+    def pack_res_frame(self):
+        self.fields['res_button'].pack(**self.padding, side="left", fill=BOTH)
+        self.fields['res_label'].pack(**self.padding, side="left", fill=BOTH, expand=True)
+
+    def pack_canvas_frame(self):
+        self.fields['canvas'].pack(**self.padding, fill=BOTH, expand=True)
+        self.fields['status_label'].pack(**self.padding, fill=BOTH, expand=True)
+
+    def pack_listbox_frame(self):
+        self.fields['listbox'].pack(**self.padding, expand=True, fill=BOTH)
+
+    def pack_action_frame(self):
+        self.pack_add_frame()
+        self.pack_del_frame()
+        self.pack_extra_frame()
+        self.pack_res_frame()
+
+        self.frames['add_frame'].pack(fill=BOTH)
+        self.frames['del_frame'].pack(fill=BOTH)
+        self.frames['extra_frame'].pack(fill=BOTH)
+        self.frames['res_frame'].pack(fill=BOTH, expand=True)
+
+    def pack_frames(self):
+        self.pack_action_frame()
+        self.pack_canvas_frame()
+        self.pack_listbox_frame()
+
+        self.frames['action_frame'].pack(side="left", fill=BOTH)
+        self.frames['canvas_frame'].pack(side="left", fill=BOTH)
+        self.frames['listbox_frame'].pack(side="left", expand=True, fill=BOTH)
+
+    #  РЕШЕНИЕ ЗАДАЧИ
+    def get_all_triangles(self, triangles):
+        n = len(self.points)
+
+        for point_1_ind in range(n):
+            point_1 = self.points[point_1_ind]
+
+            for point_2_ind in range(point_1_ind + 1, n):
+                point_2 = self.points[point_2_ind]
+
+                for point_3_ind in range(point_2_ind + 1, n):
+                    point_3 = self.points[point_3_ind]
+
+                    if is_triangle(point_1, point_2, point_3):
+                        triangles.append(MyTriangle([point_1, point_2, point_3],
+                                                    [point_1_ind, point_2_ind, point_3_ind]))
+                        triangles[len(triangles) - 1].set_min_angle_unique_data()
+
+    def get_result_triangle(self):
+        if len(self.points) < 3:
+            self.update_result_label("Невозможно получить решение")
+            messagebox.showerror(title="Ошибка решения",
+                                 message="Невозможно получить решение - НЕДОСТАТОЧНО ТОЧЕК")
+            return
+
+        all_triangles = []
+        self.get_all_triangles(all_triangles)
+
+        if len(all_triangles) == 0:
+            self.update_result_label("Невозможно получить решение")
+            messagebox.showerror(title="Ошибка решения",
+                                   message="Невозможно получить решение - ВЫРОЖДЕННЫЙ СЛУЧАЙ")
+            return
+
+        min_angle = all_triangles[0].unique_angle
+        self.result_triangle = all_triangles[0]
+
+        for triangle in all_triangles:
+            if triangle.unique_angle < min_angle:
+                min_angle = triangle.unique_angle
+                self.result_triangle = triangle
+
+        self.canvas_draw(draw_points=False, draw_triangle=True)
+        self.update_result_label(f"Найденный треугольник состоит из вершин:\n"
+                                 f"\t{self.result_triangle.indexes[0] + 1}, "
+                                 f"{self.result_triangle.indexes[1] + 1}, "
+                                 f"{self.result_triangle.indexes[2] + 1}\n"
+                                 f"Угол между высотой и биссектрисой:\n"
+                                 f"\t{self.result_triangle.unique_angle} градусов\n"
+                                 f"Координаты:\n"
+                                 f"\tоснования высоты - ({self.result_triangle.median_point.get_x()};"
+                                 f" {self.result_triangle.median_point.get_y()})\n"
+                                 f"\tоснования биссектрисы - ({self.result_triangle.bisector_point.get_x()}"
+                                 f"; {self.result_triangle.bisector_point.get_y()})\n"
+                                 f"\tвершины угла - ({self.result_triangle.unique_angle_point.get_x()};"
+                                 f" {self.result_triangle.unique_angle_point.get_y()})\n")
+
+
+def get_random_near_point(self, x, y, shift) -> tuple:
+    rnd_x = uniform(x - shift, x + shift)
+    rnd_y = uniform(y - shift, y + shift)
+
+    return rnd_x, rnd_y
+
+
+def main():
+    root = Root()
+    root.mainloop()
 
 
 if __name__ == '__main__':
-    root = Root()
-    root.mainloop()
+    main()

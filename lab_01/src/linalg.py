@@ -1,7 +1,7 @@
 from errors import *
 from line import Line, get_line_by_points
 from math import *
-from point import Point
+from point import Point, is_equal_points
 
 
 def get_points_distance(point_1, point_2) -> float:
@@ -54,6 +54,9 @@ def get_angle_between_lines(line_1, line_2):
 
 def get_angle_between_lines_by_points(angular_point_0, point_1, point_2):
     """Получение угла между двумя прямыми с вершиной в точке angular_point_0."""
+
+    if is_equal_points(angular_point_0, point_1) or is_equal_points(angular_point_0, point_2):
+        return 727
 
     line_1 = get_line_by_points(angular_point_0, point_1)
     line_2 = get_line_by_points(angular_point_0, point_2)

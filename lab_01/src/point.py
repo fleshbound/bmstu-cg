@@ -58,6 +58,12 @@ class Point(object):
     #     self.x = self.x + dx
     #     self.y = self.y + dy
 
+def is_equal_points(p1, p2):
+    if p1.get_x() == p2.get_x() and p1.get_y() == p2.get_y():
+        return True
+
+    return False
+
 
 if __name__ == '__main__':
     exit(0)
