@@ -25,8 +25,8 @@ class Triangle(object):
         bca_bisect_p = get_bisector_point(self.point_c, self.point_b, self.point_a)
 
         abc_unique_angle = get_angle_between_lines_by_points(self.point_b, abc_median_p, abc_bisect_p)
-        cab_unique_angle = get_angle_between_lines_by_points(self.point_b, cab_median_p, cab_bisect_p)
-        bca_unique_angle = get_angle_between_lines_by_points(self.point_b, bca_median_p, bca_bisect_p)
+        cab_unique_angle = get_angle_between_lines_by_points(self.point_a, cab_median_p, cab_bisect_p)
+        bca_unique_angle = get_angle_between_lines_by_points(self.point_c, bca_median_p, bca_bisect_p)
 
         if abc_unique_angle <= cab_unique_angle:
             if abc_unique_angle <= bca_unique_angle:
@@ -84,42 +84,26 @@ def is_triangle(point_a, point_b, point_c) -> bool:
     sum_ab_ac = side_ab + side_ac
     sum_bc_ac = side_bc + side_ac
 
-    if side_ac > sum_ab_bc or side_bc > sum_ab_ac or side_ab > sum_bc_ac:
+    if fabs(side_ac - sum_ab_bc) < EPSILON \
+            or fabs(side_bc - sum_ab_ac) < EPSILON \
+            or fabs(side_ab - sum_bc_ac) < EPSILON:
         return False
 
     return True
 
 
 def get_bisector_point(angular_point_0, point_1, point_2) -> Point:
-    # """Получение координат основания биссектрисы треугольника, исходящей из точки angular_point_0."""
-    #
-    # # Прямые, сод. точки 0 и 1, 0 и 2
-    # line_0_1 = get_line_by_points(angular_point_0, point_1)
-    # line_0_2 = get_line_by_points(angular_point_0, point_2)
-    #
-    # # Модули векторов нормалей к прямым, сод. точки 0 и 1, 0 и 2
-    # scalar_norm_0_1 = get_normal_scalar(line_0_1)
-    # scalar_norm_0_2 = get_normal_scalar(line_0_2)
-    #
-    # # Коэффициенты в общем уравнении прямой, содержащей биссектрису (вывод из уравнения биссектрисы)
-    # bisec_x_coef = scalar_norm_0_2 * line_0_1.x_coef - scalar_norm_0_1 * line_0_2.x_coef
-    # bisec_y_coef = scalar_norm_0_2 * line_0_1.y_coef - scalar_norm_0_1 * line_0_2.y_coef
-    # bisec_const_term = scalar_norm_0_2 * line_0_1.const_term - scalar_norm_0_1 * line_0_2.const_term
-    # bisector_line = Line((bisec_x_coef, bisec_y_coef, bisec_const_term))
-    #
-    # # Координата точки биссектрисы, лежащей напротив вершины угла
-    # line_1_2 = get_line_by_points(point_1, point_2)
-    #
-    # bisec_point = Point(0, 0)
-    # rc = get_line_concurrence_point(bisec_point, bisector_line, line_1_2)
-    #
-    # if rc != SUCCESS:
-    #     return angular_point_0
+    # биссектриса внутреннего угла треугольника делит противоположную сторону в отношении,
+    # равном отношению двух прилежащих сторон (теорема о биссектрисе)
 
-    # Тогда, так как биссектриса внутреннего угла треугольника делит противоположную сторону в отношении,
-    # равном отношению двух прилежащих сторон (теорема о биссектрисе),
+    side_0_1 = get_points_distance(angular_point_0, point_1)
+    side_0_2 = get_points_distance(angular_point_0, point_2)
+    lambda_0 = fabs(side_0_1 / side_0_2)  # Отношение сторон треугольника = отношению отрезков
 
-    return bisec_point
+    x_bi = (point_1.get_x() + lambda_0 * point_2.get_x()) / (1 + lambda_0)
+    y_bi = (point_1.get_y() + lambda_0 * point_2.get_y()) / (1 + lambda_0)
+
+    return Point(x_bi, y_bi)
 
 
 # def get_height_point(angular_point_0, point_1, point_2) -> Point:

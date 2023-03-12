@@ -1,12 +1,21 @@
 from tkinter import *
-from tkinter import messagebox, filedialog, Label, Entry, Button, messagebox, LAST, Listbox, Frame, font
-from matplotlib.figure import Figure
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
+from tkinter import Menu, Label, Entry, Button, messagebox, Listbox, Frame, font
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+import matplotlib.pyplot as plt
 from point import Point
 from random import uniform
 from triangle import *
 
 INCHES_CONST = 96
+
+
+def show_info():
+    messagebox.showinfo(title="Информация о задаче 33",
+                        message="[33]\nНа плоскости дано множество точек.\n"
+                                "Найти такой треугольник с вершинами в этих точках, у которого угол,"
+                                " образовавнный медианой и биссектрисой, исходящими из этой вершины, минимален."
+                                "\nВывести изображение в графическом режиме")
+
 
 class MyTriangle(Triangle):
 
@@ -61,6 +70,7 @@ class Root(Tk):
         self.set_status_label()
         self.canvas_draw()
         self.reset_last_action()
+        self.set_menubar()
 
     def set_window_settings(self):
         self.title("Computer Graphics: Lab #01")
@@ -76,11 +86,27 @@ class Root(Tk):
         self.frames['canvas_frame'] = Frame(self)
         self.frames['listbox_frame'] = Frame(self)
 
+    def exit_app_choice(self):
+        self.update_status_label("Выход из приложения...")
+        answer = messagebox.askokcancel("Подтверждение выхода", "Завершить работу приложения?")
+
+        if answer is None:
+            self.destroy()
+        else:
+            self.update_status_label("Выход отменен")
+
+    def set_menubar(self):
+        self.fields['menubar'] = Menu(self)
+        self.config(menu=self.fields['menubar'])
+
+        self.fields['menubar'].add_command(label="Инфо о задаче", command=lambda: show_info())
+        self.fields['menubar'].add_command(label="Выход", command=lambda: self.exit_app_choice())
+
     def set_matplotlib_canvas(self):
         """Настройка поля отрисовки"""
 
-        figure = Figure(figsize=(5.5, 5.5), dpi=100)
-        axis = figure.add_subplot(111)
+        figure = plt.Figure(figsize=(5.5, 5.5), dpi=100)
+        axis = figure.add_subplot(1, 1, 1)
         canvas = FigureCanvasTkAgg(figure, self.frames['canvas_frame'])
         self.fields['canvas'] = canvas.get_tk_widget()
         self.canvas = canvas
@@ -114,7 +140,7 @@ class Root(Tk):
             for p in self.points:
                 i += 1
                 text_x, text_y = p.x, p.y  # self.get_random_near_point(p.x, p.y, 0.01)
-                self.axis.text(text_x, text_y, f"{i}: ({p.get_x()};{p.get_y()})\n", va='center', ha='center')
+                self.axis.text(text_x, text_y, f"{i}: ({p.get_x():.3f};{p.get_y():.3f})\n", va='center', ha='center')
 
     def draw_result_triangle(self):
         x = [self.result_triangle.point_a.get_x(),
@@ -135,24 +161,34 @@ class Root(Tk):
         self.axis.scatter(unique_x, unique_y, c="red")
 
         # triangle
-        self.axis.plot([x[0], y[0]], [x[1], y[1]], c="black")
-        self.axis.plot([x[1], y[1]], [x[2], y[2]], c="black")
-        self.axis.plot([x[0], y[0]], [x[2], y[2]], c="black")
+        self.axis.plot([x[0], x[1]], [y[0], y[1]], c="black")
+        self.axis.plot([x[1], x[2]], [y[1], y[2]], c="black")
+        self.axis.plot([x[0], x[2]], [y[0], y[2]], c="black")
 
         # median
-        self.axis.plot([unique_x[0], unique_y[0]], [unique_x[1], unique_y[1]], c="blue")
+        self.axis.plot([unique_x[0], unique_x[1]], [unique_y[0], unique_y[1]], c="blue")
 
         # Bisector
-        self.axis.plot([unique_x[0], unique_y[0]], [unique_x[2], unique_y[2]], c="green")
+        self.axis.plot([unique_x[0], unique_x[2]], [unique_y[0], unique_y[2]], c="green")
 
         for i in range(len(x)):
-            self.axis.text(x[i], y[i], f"{self.result_triangle.indexes[i]}: "
-                                       f"({x[i]};{y[i]})\n", va='center', ha='center')
+            self.axis.text(x[i], y[i], f"{self.result_triangle.indexes[i] + 1}: "
+                                       f"({x[i]:.3f};{y[i]:.3f})\n", va='center', ha='center')
 
-        self.axis.text(unique_x[1], unique_y[1], f"M: ({unique_x[1]};{unique_y[1]})",
-                       va='center', ha='center')
-        self.axis.text(unique_x[2], unique_y[2], f"B: ({unique_x[2]};{unique_y[2]})",
-                       va='center', ha='center')
+        self.axis.text(unique_x[1], unique_y[1], f"M: ({unique_x[1]:.3f};{unique_y[1]:.3f})",
+                       va='top', ha='center')
+        self.axis.text(unique_x[2], unique_y[2], f"D: ({unique_x[2]:.3f};{unique_y[2]:.3f})",
+                       va='top', ha='center')
+
+        self.set_triangle_canvas_scaling(x, y)
+
+    def set_triangle_canvas_scaling(self, new_x, new_y):
+        self.axis.set_aspect('auto')
+        x_shift = (max(new_x) - min(new_x)) / 4
+        y_shift = (max(new_y) - min(new_y)) / 4
+
+        self.axis.set_xlim(min(new_x) - x_shift, max(new_x) + x_shift)
+        self.axis.set_ylim(min(new_y) - y_shift, max(new_y) + y_shift)
 
     def canvas_draw(self, draw_points=True, draw_triangle=False):
         """Отрисовка объектов"""
@@ -167,7 +203,6 @@ class Root(Tk):
 
         self.axis.grid()
         self.draw_axis()
-        self.axis.autoscale()
         self.canvas.draw()
 
     def check_point_entries(self):
@@ -220,7 +255,7 @@ class Root(Tk):
         new_point = Point(float(self.fields['x_entry'].get()), float(self.fields['y_entry'].get()))
         self.add_point_by_index(len(self.points), new_point)
         self.update_last_action("add", len(self.points) - 1, new_point)
-        self.update_status_label(f"Добавлена точка: ({new_point.x}; {new_point.y})")
+        self.update_status_label(f"Добавлена точка: ({new_point.x:.3f}; {new_point.y:.3f})")
 
     def set_buttons(self):
         """Создание кнопок"""
@@ -239,14 +274,14 @@ class Root(Tk):
                                            command=lambda: self.get_result_triangle())
 
     def insert_listbox_separator(self):
-        self.fields['listbox'].insert(END, f"|-------|-------|-------|")
+        self.fields['listbox'].insert(END, f"|-----|-----|-----|")
 
     def insert_listbox_heading(self):
-        self.fields['listbox'].insert(END, "|-- № --|-- x --|-- y --|")
+        self.fields['listbox'].insert(END, "|- № -|- x -|- y -|")
         self.insert_listbox_separator()
 
     def insert_listbox_info(self, i, x, y):
-        self.fields['listbox'].insert(END, f"| {i:^5} | {x:^5} | {y:^5} |")
+        self.fields['listbox'].insert(END, f"|{i:^5}|{x:^5.3f}|{y:^5.3f}|")
 
     def set_points_listbox(self):
         """Настройка текстового списка точек"""
@@ -328,7 +363,7 @@ class Root(Tk):
         x, y = self.delete_point_by_index(index)
         deleted = Point(x, y)
         self.update_last_action("del", index, deleted)
-        self.update_status_label(f"Удалена точка: {index + 1} ({deleted.x}; {deleted.y})")
+        self.update_status_label(f"Удалена точка: {index + 1} ({deleted.x:.3f}; {deleted.y:.3f})")
 
     def set_point_entries(self):
         self.fields['x_entry'] = Entry(self.frames['add_frame'], textvariable=self.x_coord_var,
@@ -464,7 +499,7 @@ class Root(Tk):
         if len(all_triangles) == 0:
             self.update_result_label("Невозможно получить решение")
             messagebox.showerror(title="Ошибка решения",
-                                   message="Невозможно получить решение - ВЫРОЖДЕННЫЙ СЛУЧАЙ")
+                                 message="Невозможно получить решение - ВЫРОЖДЕННЫЙ СЛУЧАЙ")
             return
 
         min_angle = all_triangles[0].unique_angle
@@ -475,27 +510,20 @@ class Root(Tk):
                 min_angle = triangle.unique_angle
                 self.result_triangle = triangle
 
-        self.canvas_draw(draw_points=False, draw_triangle=True)
+        self.canvas_draw(draw_points=True, draw_triangle=True)
         self.update_result_label(f"Найденный треугольник состоит из вершин:\n"
                                  f"\t{self.result_triangle.indexes[0] + 1}, "
                                  f"{self.result_triangle.indexes[1] + 1}, "
                                  f"{self.result_triangle.indexes[2] + 1}\n"
                                  f"Угол между высотой и биссектрисой:\n"
-                                 f"\t{self.result_triangle.unique_angle} градусов\n"
+                                 f"\t> {self.result_triangle.unique_angle:.3f} град.\n"
                                  f"Координаты:\n"
-                                 f"\tоснования высоты - ({self.result_triangle.median_point.get_x()};"
-                                 f" {self.result_triangle.median_point.get_y()})\n"
-                                 f"\tоснования биссектрисы - ({self.result_triangle.bisector_point.get_x()}"
-                                 f"; {self.result_triangle.bisector_point.get_y()})\n"
-                                 f"\tвершины угла - ({self.result_triangle.unique_angle_point.get_x()};"
-                                 f" {self.result_triangle.unique_angle_point.get_y()})\n")
-
-
-def get_random_near_point(self, x, y, shift) -> tuple:
-    rnd_x = uniform(x - shift, x + shift)
-    rnd_y = uniform(y - shift, y + shift)
-
-    return rnd_x, rnd_y
+                                 f"\t> основания медианы M: ({self.result_triangle.median_point.get_x():.3f};"
+                                 f" {self.result_triangle.median_point.get_y():.3f})\n"
+                                 f"\t> основания биссектрисы D: ({self.result_triangle.bisector_point.get_x():.3f}"
+                                 f"; {self.result_triangle.bisector_point.get_y():.3f})\n"
+                                 f"\t> вершины угла - ({self.result_triangle.unique_angle_point.get_x():.3f};"
+                                 f" {self.result_triangle.unique_angle_point.get_y():.3f})\n")
 
 
 def main():

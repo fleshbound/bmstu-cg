@@ -3,6 +3,8 @@ from line import Line, get_line_by_points
 from math import *
 from point import Point, is_equal_points
 
+EPSILON = 1e-5
+
 
 def get_points_distance(point_1, point_2) -> float:
     """Получение расстояния между двумя точками (теорема Пифагора)."""
@@ -47,9 +49,16 @@ def get_angle_between_lines(line_1, line_2):
     norm_1 = get_normal_scalar(line_1)
     norm_2 = get_normal_scalar(line_2)
 
-    angle_cos = (line_1.x_coef * line_2.x_coef + line_1.y_coef * line_2.y_coef) / (norm_1 * norm_2)
+    angle_degrees = 0
 
-    return degrees(acos(angle_cos))
+    if fabs(norm_1 - norm_2) >= EPSILON:
+        angle_cos = (line_1.x_coef * line_2.x_coef + line_1.y_coef * line_2.y_coef) / (norm_1 * norm_2)
+        angle_degrees = degrees(acos(angle_cos))
+
+        if fabs(angle_degrees) < EPSILON:
+            angle_degrees = 0
+
+    return angle_degrees
 
 
 def get_angle_between_lines_by_points(angular_point_0, point_1, point_2):
